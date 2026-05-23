@@ -68,10 +68,25 @@ const AdminDashboard: React.FC = () => {
     return users.filter((u) => u?.toLowerCase().includes(searchUser.toLowerCase()));
   }, [tasks, searchUser]);
 
-  const dateFilteredTasks = useMemo(() => {
-    if (!dateFilter) return [];
-    return tasks.filter((t) => t.due_date.split('T')[0] === dateFilter);
-  }, [tasks, dateFilter]);
+  // Memo for selected user statistics
+  const selectedUserStats = useMemo(() => {
+    if (!selectedUser) return null;
+    const userTasks = tasks.filter(t => t.assigned_user?.username === selectedUser);
+    const total = userTasks.length;
+    const completed = userTasks.filter(t => t.status === "Completed").length;
+    const pending = userTasks.filter(t => t.status !== "Completed").length;
+    const statusCounts = userTasks.reduce((acc, t) => {
+      acc[t.status] = (acc[t.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const nextDeadline = userTasks.reduce((earliest: Date | null, t) => {
+      const d = new Date(t.due_date);
+      if (!earliest || d < earliest) return d;
+      return earliest;
+    }, null);
+    return { total, completed, pending, statusCounts, nextDeadline };
+  }, [tasks, selectedUser]);
+
 
   useEffect(() => {
     fetchAllTasks();
@@ -247,9 +262,23 @@ const AdminDashboard: React.FC = () => {
           </div>
           {/* Selected user tasks view */}
           {selectedUser && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-white mb-2">Tasks for {selectedUser}</h3>
-              <ul className="space-y-2">
+            <div className="mb-6 bg-white/5 p-4 rounded-xl border border-white/10">
+              <h3 className="text-sm font-bold text-white mb-3">User Profile: {selectedUser}</h3>
+                <div className="flex gap-4 text-xs text-gray-400">
+                  <p>Total Tasks: {selectedUserStats?.total ?? 0}</p>
+                  <p>Pending: {selectedUserStats?.pending ?? 0}</p>
+                  <p>Completed: {selectedUserStats?.completed ?? 0}</p>
+                  {selectedUserStats?.nextDeadline && (
+                    <p>Next Deadline: {selectedUserStats.nextDeadline.toLocaleDateString()}</p>
+                  )}
+                  {selectedUserStats?.statusCounts && (
+                    <p>
+                      Statuses: To Do ({selectedUserStats.statusCounts["To Do"] ?? 0}), In Progress ({selectedUserStats.statusCounts["In Progress"] ?? 0}), Completed ({selectedUserStats.statusCounts["Completed"] ?? 0})
+                    </p>
+                  )}
+                </div>
+
+              <ul className="mt-4 space-y-2">
                 {tasks
                   .filter((t) => t.assigned_user?.username === selectedUser)
                   .map((t) => (
