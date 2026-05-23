@@ -291,19 +291,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
           {/* Date filtered tasks view */}
-          {dateFilter && (
-            <div className="mb-6">
-              <h3 className="text-sm font-medium text-white mb-2">Tasks for {dateFilter}</h3>
-              <ul className="space-y-2">
-                {dateFilteredTasks.map((t) => (
-                  <li key={t.id} className="flex justify-between text-gray-200">
-                    <span>{t.title}</span>
-                    <span className="text-xs text-gray-400">{t.assigned_user?.username || "Unassigned"}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          
           {/* Active Tasks List */}
           <div className="mb-6">
             <h3 className="text-sm font-medium text-white mb-2">Active Task List</h3>
