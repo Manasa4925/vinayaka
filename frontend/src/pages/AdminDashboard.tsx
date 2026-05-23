@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
 import CalendarView from "../components/CalendarView";
 import { taskService, type Task } from "../services/taskService";
@@ -8,8 +8,18 @@ import {
   Activity, 
   Calendar as CalendarIcon, 
   BarChart4, 
-  Inbox 
+  Inbox,
+  Clock,
+  Loader
 } from "lucide-react";
+
+// Mapping of each status to its base background and text colors (used when not selected)
+const statusColors: Record<string, string> = {
+  All: "bg-gray-300 text-gray-800",
+  "To Do": "bg-gray-400 text-white",
+  "In Progress": "bg-purple-500 text-white",
+  Completed: "bg-emerald-500 text-white",
+};
 import { 
   BarChart, 
   Bar, 
@@ -26,6 +36,11 @@ const AdminDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCalendar, setShowCalendar] = useState(false);
+  // Filter states
+  const [searchUser, setSearchUser] = useState("");
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState("");
 
   const fetchAllTasks = async () => {
     try {
@@ -37,6 +52,26 @@ const AdminDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Compute filtered tasks based on current filter inputs
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchesUser = selectedUser ? t.assigned_user?.username === selectedUser : true;
+      const matchesStatus = statusFilter === "All" ? true : t.status === statusFilter;
+      const matchesDate = dateFilter ? t.due_date.split('T')[0] === dateFilter : true;
+      return matchesUser && matchesStatus && matchesDate;
+    });
+  }, [tasks, selectedUser, statusFilter, dateFilter]);
+
+  const userSuggestions = useMemo(() => {
+    const users = Array.from(new Set(tasks.map((t) => t.assigned_user?.username).filter(Boolean)));
+    return users.filter((u) => u?.toLowerCase().includes(searchUser.toLowerCase()));
+  }, [tasks, searchUser]);
+
+  const dateFilteredTasks = useMemo(() => {
+    if (!dateFilter) return [];
+    return tasks.filter((t) => t.due_date.split('T')[0] === dateFilter);
+  }, [tasks, dateFilter]);
 
   useEffect(() => {
     fetchAllTasks();
@@ -52,11 +87,11 @@ const AdminDashboard: React.FC = () => {
   };
 
   // 1. Metric calculations
-  const total = tasks.length;
-  const completed = tasks.filter((t) => t.status === "Completed").length;
-  const inProgress = tasks.filter((t) => t.status === "In Progress").length;
-  const todo = tasks.filter((t) => t.status === "To Do").length;
-  const overdue = tasks.filter(
+  const total = filteredTasks.length;
+  const completed = filteredTasks.filter((t) => t.status === "Completed").length;
+  const inProgress = filteredTasks.filter((t) => t.status === "In Progress").length;
+  const todo = filteredTasks.filter((t) => t.status === "To Do").length;
+  const overdue = filteredTasks.filter(
     (t) => t.status !== "Completed" && new Date(t.due_date) < new Date()
   ).length;
 
@@ -70,9 +105,9 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const priorityChartData = [
-    { name: "High", value: tasks.filter((t) => t.priority === "High").length, color: "#ef4444" },
-    { name: "Medium", value: tasks.filter((t) => t.priority === "Medium").length, color: "#f59e0b" },
-    { name: "Low", value: tasks.filter((t) => t.priority === "Low").length, color: "#6366f1" },
+    { name: "High", value: filteredTasks.filter((t) => t.priority === "High").length, color: "#ef4444" },
+    { name: "Medium", value: filteredTasks.filter((t) => t.priority === "Medium").length, color: "#f59e0b" },
+    { name: "Low", value: filteredTasks.filter((t) => t.priority === "Low").length, color: "#6366f1" },
   ].filter((d) => d.value > 0); // Hide empty slices
 
   const statCards = [
@@ -153,7 +188,103 @@ const AdminDashboard: React.FC = () => {
         ) : (
           <div className="space-y-8">
             
-            {/* Stat Cards Grid */}
+            {/* Filter Bar */}
+          <div className="flex flex-col md:flex-row gap-4 mb-6 relative">
+            {/* Username search with suggestions */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Search by username"
+                value={searchUser}
+                onChange={(e) => {
+                  setSearchUser(e.target.value);
+                  setSelectedUser(null);
+                }}
+                className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 placeholder-gray-400 text-gray-100 focus:outline-none"
+              />
+              {searchUser && !selectedUser && userSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                  {userSuggestions.map((user) => (
+                    <button
+                      key={user}
+                      className="block w-full text-left px-4 py-2 hover:bg-white/10 text-sm"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setSearchUser(user);
+                      }}
+                    >
+                      {user}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Status buttons */}
+            <div className="flex space-x-2">
+              {['All', 'To Do', 'In Progress', 'Completed'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setStatusFilter(status);
+                    if (status === "All") {
+                      setSelectedUser(null);
+                      setDateFilter("");
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${statusFilter === status ? "bg-white text-gray-900" : "bg-white/5 text-gray-400 hover:bg-white/10"}`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            {/* Date filter */}
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-100"
+            />
+          </div>
+          {/* Selected user tasks view */}
+          {selectedUser && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-white mb-2">Tasks for {selectedUser}</h3>
+              <ul className="space-y-2">
+                {tasks
+                  .filter((t) => t.assigned_user?.username === selectedUser)
+                  .map((t) => (
+                    <li key={t.id} className="flex justify-between text-gray-200">
+                      <span>{t.title}</span>
+                      <span className="text-xs text-gray-400">{new Date(t.due_date).toLocaleDateString()}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {/* Date filtered tasks view */}
+          {dateFilter && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-white mb-2">Tasks for {dateFilter}</h3>
+              <ul className="space-y-2">
+                {dateFilteredTasks.map((t) => (
+                  <li key={t.id} className="flex justify-between text-gray-200">
+                    <span>{t.title}</span>
+                    <span className="text-xs text-gray-400">{t.assigned_user?.username || "Unassigned"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Active Tasks List */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-white mb-2">Active Task List</h3>
+            <ul className="space-y-2 text-sm text-gray-300">
+              {filteredTasks.map((t) => (
+                <li key={t.id} className="p-2 border border-white/5 rounded">{t.title}</li>
+              ))}
+            </ul>
+          </div>
+        {/* Stat Cards Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {statCards.map((card) => (
                 <div key={card.title} className={`glass-panel p-5 rounded-2xl border ${card.color} flex flex-col justify-between`}>
@@ -175,7 +306,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold text-white uppercase tracking-wider">Workspace Calendar</h2>
                 </div>
-                <CalendarView tasks={tasks} onStatusChange={handleStatusChange} />
+                <CalendarView tasks={filteredTasks} onStatusChange={handleStatusChange} />
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -311,7 +442,7 @@ const AdminDashboard: React.FC = () => {
                   <h3 className="text-xs font-bold text-red-300 uppercase tracking-widest">Immediate Attention Required ({overdue} Overdue)</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {tasks
+                  {filteredTasks
                     .filter((t) => t.status !== "Completed" && new Date(t.due_date) < new Date())
                     .slice(0, 3)
                     .map((t) => (

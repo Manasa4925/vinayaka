@@ -10,12 +10,12 @@ interface TaskCardProps {
   onStatusChange: (id: number, newStatus: "To Do" | "In Progress" | "Completed") => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ 
-  task, 
-  isAdmin, 
-  onEdit, 
-  onDelete, 
-  onStatusChange 
+const TaskCard: React.FC<TaskCardProps> = ({
+  task,
+  isAdmin,
+  onEdit,
+  onDelete,
+  onStatusChange
 }) => {
   // Determine if a task is overdue (past due date and time, and not completed)
   const isOverdue = task.status !== "Completed" && new Date(task.due_date) < new Date();
@@ -42,12 +42,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <div 
-      className={`glass-panel rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 relative group ${
-        isOverdue 
-          ? "border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:border-red-500/60" 
+    <div
+      className={`glass-panel rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 relative group ${isOverdue
+          ? "border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:border-red-500/60"
           : "hover:border-brandPurple/30 hover:shadow-glowPurple"
-      } hover:translate-y-[-4px]`}
+        } hover:translate-y-[-4px]`}
     >
       {/* Overdue Glow Badge */}
       {isOverdue && (
@@ -68,14 +67,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {/* Admin controls */}
           {isAdmin && (
             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <button 
+              <button
                 onClick={() => onEdit(task)}
                 className="text-gray-400 hover:text-brandPurple p-1 rounded hover:bg-white/5 transition-colors duration-200"
                 title="Edit Task"
               >
                 <Edit2 className="h-4 w-4" />
               </button>
-              <button 
+              <button
                 onClick={() => onDelete(task.id)}
                 className="text-gray-400 hover:text-red-400 p-1 rounded hover:bg-white/5 transition-colors duration-200"
                 title="Delete Task"
@@ -127,17 +126,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
           <select
             value={task.status}
             onChange={(e) => onStatusChange(task.id, e.target.value as any)}
-            className={`text-xs font-bold bg-transparent outline-none cursor-pointer border-0 p-0 pr-6 ${
-              task.status === "Completed" 
-                ? "text-emerald-400" 
-                : task.status === "In Progress" 
-                ? "text-brandPurple" 
-                : "text-gray-400"
-            }`}
+            className={`text-xs font-bold bg-transparent outline-none cursor-pointer border-0 p-0 pr-6 ${task.status === "Completed"
+                ? "text-emerald-400"
+                : task.status === "In Progress"
+                  ? "text-brandPurple"
+                  : "text-gray-400"
+              }`}
           >
-            <option value="To Do" className="bg-darkBg text-gray-300 font-bold">To Do</option>
-            <option value="In Progress" className="bg-darkBg text-gray-300 font-bold">In Progress</option>
-            <option value="Completed" className="bg-darkBg text-gray-300 font-bold">Completed</option>
+            <option value="To Do" className="bg-gray-800 text-gray-200 font-bold">To Do</option>
+            <option value="In Progress" className="bg-purple-800 text-purple-200 font-bold">In Progress</option>
+            <option value="Completed" className="bg-emerald-800 text-emerald-200 font-bold">Completed</option>
           </select>
         </div>
       </div>

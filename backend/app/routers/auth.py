@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """Registers a new user. Supports assigning 'Admin' or 'User' roles."""
     # Check if username exists
-    existing_username = db.query(User).filter(User.username == user_in.username).first()
+    existing_username = db.query(User).filter(User.username == user_in.username.strip().lower()).first()
     if existing_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -25,7 +25,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         )
     
     # Check if email exists
-    existing_email = db.query(User).filter(User.email == user_in.email).first()
+    existing_email = db.query(User).filter(User.email == user_in.email.strip().lower()).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -41,8 +41,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         
     hashed_password = get_password_hash(user_in.password)
     db_user = User(
-        username=user_in.username,
-        email=user_in.email,
+        username=user_in.username.strip().lower(),
+        email=user_in.email.strip().lower(),
         hashed_password=hashed_password,
         role=role
     )
@@ -54,56 +54,26 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(login_req: LoginRequest, db: Session = Depends(get_db)):
     """Log in and generate access and refresh tokens. Supports username or email login."""
-    # Look up by email or username
-    db_user = db.query(User).filter(
-        (User.username == login_req.username) | (User.email == login_req.username)
-    ).first()
-    
+    # Normalize identifier for case‑insensitive matching
+    identifier = login_req.username.strip().lower()
+    db_user = db.query(User).filter((User.username == identifier) | (User.email == identifier)).first()
     if not db_user or not verify_password(login_req.password, db_user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username, email, or password"
-        )
-        
-    # Generate tokens with subject and role claims
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username, email, or password")
     access_token = create_access_token(data={"sub": db_user.username, "role": db_user.role})
     refresh_token = create_refresh_token(data={"sub": db_user.username, "role": db_user.role})
-    
-    return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        role=db_user.role,
-        username=db_user.username
-    )
+    return Token(access_token=access_token, refresh_token=refresh_token, role=db_user.role, username=db_user.username)
 
 @router.post("/refresh")
 def refresh(refresh_req: RefreshRequest, db: Session = Depends(get_db)):
     """Verifies a refresh token and generates a new access token."""
     payload = verify_refresh_token(refresh_req.refresh_token)
     if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
-        )
-        
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
     username: str = payload.get("sub")
     if not username:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token payload"
-        )
-        
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token payload")
     db_user = db.query(User).filter(User.username == username).first()
     if not db_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-        
-    # Issue a fresh access token
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     access_token = create_access_token(data={"sub": db_user.username, "role": db_user.role})
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return {"access_token": access_token, "token_type": "bearer"}
