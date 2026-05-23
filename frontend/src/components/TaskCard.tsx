@@ -1,5 +1,5 @@
 import React from "react";
-import { Edit2, Trash2, Clock, User, AlertCircle } from "lucide-react";
+import { Edit2, Trash2, Clock, User, AlertCircle, Download } from "lucide-react";
 import type { Task } from "../services/taskService";
 
 interface TaskCardProps {
@@ -44,8 +44,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div
       className={`glass-panel rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 relative group ${isOverdue
-          ? "border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:border-red-500/60"
-          : "hover:border-brandPurple/30 hover:shadow-glowPurple"
+        ? "border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:border-red-500/60"
+        : "hover:border-brandPurple/30 hover:shadow-glowPurple"
         } hover:translate-y-[-4px]`}
     >
       {/* Overdue Glow Badge */}
@@ -67,6 +67,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {/* Admin controls */}
           {isAdmin && (
             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <button
+                onClick={() => {
+                  const headers = ["id","title","description","status","priority","due_date","assigned_user"];                    
+                  const row = [
+                    task.id,
+                    task.title,
+                    task.description,
+                    task.status,
+                    task.priority,
+                    task.due_date,
+                    task.assigned_user ? task.assigned_user.username : "",
+                  ];
+                  const csv = [headers, row]
+                    .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+                    .join('\n');
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `task_${task.id}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="text-gray-400 hover:text-brandPurple p-1 rounded hover:bg-white/5 transition-colors duration-200"
+                title="Download CSV"
+              >
+                <Download className="h-4 w-4" />
+              </button>
               <button
                 onClick={() => onEdit(task)}
                 className="text-gray-400 hover:text-brandPurple p-1 rounded hover:bg-white/5 transition-colors duration-200"
@@ -127,10 +155,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
             value={task.status}
             onChange={(e) => onStatusChange(task.id, e.target.value as any)}
             className={`text-xs font-bold bg-transparent outline-none cursor-pointer border-0 p-0 pr-6 ${task.status === "Completed"
-                ? "text-emerald-400"
-                : task.status === "In Progress"
-                  ? "text-brandPurple"
-                  : "text-gray-400"
+              ? "text-emerald-400"
+              : task.status === "In Progress"
+                ? "text-brandPurple"
+                : "text-gray-400"
               }`}
           >
             <option value="To Do" className="bg-gray-800 text-gray-200 font-bold">To Do</option>
